@@ -21,6 +21,63 @@
             --primary-btn-hover: #059669;
         }
 
+        /* --- Variáveis e Cores para o Modo Escuro --- */
+        html.dark {
+            --bg-color: #0f172a; 
+            --board-bg: #1e293b; 
+            --cell-bg: #334155; 
+            --cell-border: #475569; 
+            --text-color: #f8fafc; 
+        }
+        
+        /* Ajustes Tailwind para o modo escuro */
+        html.dark .text-gray-800, html.dark .text-gray-700 { color: #f1f5f9; }
+        html.dark .text-gray-600, html.dark .text-gray-500 { color: #cbd5e1; }
+        html.dark .bg-white { background-color: var(--board-bg); }
+        html.dark .border-white { border-color: var(--board-bg); }
+        
+        /* Tema Toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--board-bg);
+            border: 2px solid var(--cell-border);
+            color: var(--text-color);
+            padding: 0.5rem;
+            border-radius: 50%;
+            width: 3rem;
+            height: 3rem;
+            font-size: 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+            z-index: 100;
+        }
+        .theme-toggle:hover { transform: scale(1.1); }
+
+        /* Botões de Modo de Jogo */
+        .mode-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: 2px solid var(--cell-border);
+            border-radius: 0.75rem;
+            font-weight: bold;
+            color: var(--text-color);
+            background-color: var(--cell-bg);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-btn.active {
+            border-color: var(--primary-btn);
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--primary-btn);
+        }
+        html.dark .mode-btn.active { background-color: rgba(16, 185, 129, 0.2); }
+
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-color);
@@ -31,6 +88,7 @@
             min-height: 100vh;
             margin: 0;
             padding: 1rem;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         .game-container {
@@ -195,6 +253,11 @@
         .setup-input:focus {
             border-color: var(--primary-btn);
         }
+        .setup-input:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background-color: var(--cell-border);
+        }
 
         .symbol-btn {
             padding: 0.5rem 1.5rem;
@@ -288,6 +351,12 @@
 </head>
 <body>
 
+    <!-- Toggle de Tema Escuro/Claro -->
+    <button id="theme-toggle" class="theme-toggle" title="Mudar Tema">🌙</button>
+
+    <!-- Canvas para Confetes -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-[60] hidden"></canvas>
+
     <!-- Overlay do Sorteio (Dado) -->
     <div id="dice-overlay" class="fixed inset-0 bg-black/60 hidden z-50 flex-col justify-center items-center backdrop-blur-sm">
         <div class="bg-white p-8 rounded-2xl text-center shadow-2xl flex flex-col items-center min-w-[300px]">
@@ -315,6 +384,12 @@
         <h1 class="title !mb-2">Jogo da Velha</h1>
         <p class="text-gray-500 mb-6 text-sm">Configure a partida</p>
         
+        <!-- Seleção de Modo -->
+        <div class="w-full mb-4 flex gap-2">
+            <button id="mode-pvp" class="mode-btn active">👤 vs 👤 <br><span class="text-xs font-normal">Amigo</span></button>
+            <button id="mode-pvb" class="mode-btn">👤 vs 🤖 <br><span class="text-xs font-normal">Robô</span></button>
+        </div>
+
         <div class="w-full mb-4">
             <label class="block text-sm font-bold text-gray-700 mb-1 text-center">Jogador 1</label>
             <input type="text" id="p1-name" class="setup-input !mb-2" placeholder="Ex: Ana" value="Jogador 1" maxlength="12">
@@ -397,6 +472,13 @@
             const scoreLabelP1 = document.getElementById('score-label-p1');
             const scoreLabelP2 = document.getElementById('score-label-p2');
 
+            // Novos seletores de UI (Tema, Modos, Confete)
+            const themeToggleBtn = document.getElementById('theme-toggle');
+            const modePvpBtn = document.getElementById('mode-pvp');
+            const modePvbBtn = document.getElementById('mode-pvb');
+            const confettiCanvas = document.getElementById('confetti-canvas');
+            const ctx = confettiCanvas.getContext('2d');
+
             // Lista de símbolos divertidos disponíveis
             const availableSymbols = ['❌', '⭕', '🐶', '🐱', '🦊', '🐼', '🚀', '🛸', '⭐', '🔥'];
 
@@ -407,6 +489,31 @@
             let currentPlayer = p1;
             let gameActive = false;
             let scores = { p1: 0, p2: 0, ties: 0 };
+            let isBotMode = false;
+
+            // --- LÓGICA DE TEMA E MODOS DE JOGO ---
+            let isDarkMode = false;
+            themeToggleBtn.addEventListener('click', () => {
+                isDarkMode = !isDarkMode;
+                document.documentElement.classList.toggle('dark', isDarkMode);
+                themeToggleBtn.textContent = isDarkMode ? '☀️' : '🌙';
+            });
+
+            modePvpBtn.addEventListener('click', () => {
+                isBotMode = false;
+                modePvpBtn.classList.add('active');
+                modePvbBtn.classList.remove('active');
+                p2NameInput.value = 'Jogador 2';
+                p2NameInput.disabled = false;
+            });
+
+            modePvbBtn.addEventListener('click', () => {
+                isBotMode = true;
+                modePvbBtn.classList.add('active');
+                modePvpBtn.classList.remove('active');
+                p2NameInput.value = 'Robô 🤖';
+                p2NameInput.disabled = true;
+            });
 
             const winningConditions = [
                 [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -465,6 +572,7 @@
             // --- FLUXO DE INÍCIO (SORTEIO) ---
             function startMatchFlow() {
                 boardElement.classList.remove('board-shake');
+                stopConfetti(); // Garante que parou da partida anterior
                 initializeBoard();
                 
                 diceOverlay.classList.remove('hidden');
@@ -484,16 +592,17 @@
                         diceOverlay.classList.remove('flex');
                         gameScreen.classList.remove('hidden');
                         gameActive = true;
-                        updateStatusText();
-                    }, 1800);
+                        
+                        updateStatus();
+
+                        // Se for bot e ele começar, faz a jogada
+                        if (isBotMode && currentPlayer === p2) {
+                            setTimeout(botPlay, 500);
+                        }
+                    }, 1500);
                 }, 1500);
             }
 
-            function updateStatusText() {
-                statusElement.innerHTML = `Sua vez, <span class="${currentPlayer.colorClass}">${currentPlayer.name}</span> (${currentPlayer.symbol})`;
-            }
-
-            // --- LÓGICA DO TABULEIRO ---
             function initializeBoard() {
                 board = ['', '', '', '', '', '', '', '', ''];
                 boardElement.innerHTML = '';
@@ -501,79 +610,79 @@
                     const cell = document.createElement('div');
                     cell.classList.add('cell');
                     cell.dataset.index = i;
-                    cell.addEventListener('click', handleCellClick);
+                    cell.addEventListener('click', () => handleCellClick(i));
                     boardElement.appendChild(cell);
                 }
             }
 
-            function handleCellClick(event) {
-                const clickedCell = event.target;
-                const cellIndex = parseInt(clickedCell.dataset.index);
-
-                if (board[cellIndex] !== '' || !gameActive) return;
-
-                // Armazena quem jogou
-                board[cellIndex] = currentPlayer.id;
+            function handleCellClick(index) {
+                if (!gameActive || board[index] !== '') return;
                 
-                // Mostra o símbolo na tela
-                const markElement = document.createElement('span');
-                markElement.classList.add('mark');
-                markElement.textContent = currentPlayer.symbol;
-                clickedCell.appendChild(markElement);
-                clickedCell.classList.add(currentPlayer.colorClass);
+                // Impede o humano de clicar enquanto o bot "pensa"
+                if (isBotMode && currentPlayer === p2) return;
 
-                checkResult();
+                makeMove(index);
+
+                if (gameActive && isBotMode && currentPlayer === p2) {
+                    setTimeout(botPlay, 600);
+                }
             }
 
-            function checkResult() {
-                let roundWon = false;
-                let winningCells = [];
+            function makeMove(index) {
+                board[index] = currentPlayer.symbol;
+                
+                const cellElement = boardElement.children[index];
+                cellElement.innerHTML = `<span class="mark ${currentPlayer.colorClass}">${currentPlayer.symbol}</span>`;
 
-                // Verifica condições de vitória
-                for (let i = 0; i < winningConditions.length; i++) {
-                    const [a, b, c] = winningConditions[i];
-                    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-                        roundWon = true;
-                        winningCells = [a, b, c];
-                        break;
+                if (checkWin()) {
+                    handleWin();
+                } else if (board.every(cell => cell !== '')) {
+                    handleDraw();
+                } else {
+                    currentPlayer = currentPlayer === p1 ? p2 : p1;
+                    updateStatus();
+                }
+            }
+
+            function botPlay() {
+                if (!gameActive) return;
+
+                let moveIndex = -1;
+
+                // 1. Tenta Ganhar
+                moveIndex = findBestMove(p2.symbol);
+                
+                // 2. Tenta Bloquear
+                if (moveIndex === -1) {
+                    moveIndex = findBestMove(p1.symbol);
+                }
+                
+                // 3. Joga aleatório
+                if (moveIndex === -1) {
+                    const emptyIndices = board.map((val, idx) => val === '' ? idx : null).filter(val => val !== null);
+                    if (emptyIndices.length > 0) {
+                        moveIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
                     }
                 }
 
-                if (roundWon) {
-                    handleWin(winningCells);
-                    return;
+                if (moveIndex !== -1) {
+                    makeMove(moveIndex);
                 }
-
-                if (!board.includes('')) {
-                    handleDraw();
-                    return;
-                }
-
-                // Troca turno
-                currentPlayer = currentPlayer.id === 'p1' ? p2 : p1;
-                updateStatusText();
             }
 
-            function handleWin(winningCells) {
-                gameActive = false;
-                const cells = document.querySelectorAll('.cell');
-                winningCells.forEach(index => cells[index].classList.add('win'));
-
-                scores[currentPlayer.id]++;
-                updateScoreboard();
-                statusElement.innerHTML = `✨ Vitória de ${currentPlayer.name}! ✨`;
-
-                setTimeout(() => showResultModal('win'), 800);
+            // Função simples para bot achar jogada de vitória/bloqueio
+            function findBestMove(symbolToCheck) {
+                for (let i = 0; i < winningConditions.length; i++) {
+                    const [a, b, c] = winningConditions[i];
+                    if (board[a] === symbolToCheck && board[b] === symbolToCheck && board[c] === '') return c;
+                    if (board[a] === symbolToCheck && board[c] === symbolToCheck && board[b] === '') return b;
+                    if (board[b] === symbolToCheck && board[c] === symbolToCheck && board[a] === '') return a;
+                }
+                return -1;
             }
 
-            function handleDraw() {
-                gameActive = false;
-                scores.ties++;
-                updateScoreboard();
-                statusElement.innerHTML = `Deu Velha! 🤝`;
-                
-                boardElement.classList.add('board-shake');
-                setTimeout(() => showResultModal('draw'), 1000);
+            function updateStatus() {
+                statusElement.innerHTML = `Vez de <span class="${currentPlayer.colorClass}">${currentPlayer.name} ${currentPlayer.symbol}</span>`;
             }
 
             function updateScoreboard() {
@@ -582,47 +691,157 @@
                 scoreTiesElement.textContent = scores.ties;
             }
 
-            // --- MODAIS E BOTÕES ---
-            function showResultModal(type) {
-                resultModal.classList.remove('hidden');
-                resultModal.classList.remove('celebration-bg');
-                resultModal.classList.add('bg-black/60');
+            function checkWin() {
+                for (let i = 0; i < winningConditions.length; i++) {
+                    const [a, b, c] = winningConditions[i];
+                    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                        // Destaca células
+                        boardElement.children[a].classList.add('win');
+                        boardElement.children[b].classList.add('win');
+                        boardElement.children[c].classList.add('win');
+                        return true;
+                    }
+                }
+                return false;
+            }
 
-                if (type === 'win') {
+            function handleWin() {
+                gameActive = false;
+                if (currentPlayer === p1) scores.p1++;
+                else scores.p2++;
+                
+                updateScoreboard();
+                statusElement.innerHTML = `<span class="${currentPlayer.colorClass}">${currentPlayer.name} venceu! 🎉</span>`;
+                
+                setTimeout(() => {
                     resultIcon.textContent = '🏆';
                     resultTitle.textContent = 'Vitória!';
                     resultTitle.className = `text-3xl font-extrabold mb-2 ${currentPlayer.colorClass}`;
-                    resultSubtitle.innerHTML = `<strong>${currentPlayer.name}</strong> (${currentPlayer.symbol}) dominou a partida! 🎉`;
-                    resultModal.classList.remove('bg-black/60');
-                    resultModal.classList.add('celebration-bg');
-                } else {
-                    resultIcon.textContent = '🤷‍♂️';
-                    resultTitle.textContent = 'Deu Velha!';
-                    resultTitle.className = 'text-3xl font-extrabold text-gray-800 mb-2';
-                    resultSubtitle.textContent = 'Foi um jogo acirrado, ninguém venceu.';
-                }
+                    resultSubtitle.textContent = `${currentPlayer.name} (${currentPlayer.symbol}) ganhou a partida!`;
+                    resultModal.classList.remove('hidden');
+                    
+                    startConfetti();
+                }, 800);
             }
 
+            function handleDraw() {
+                gameActive = false;
+                scores.ties++;
+                updateScoreboard();
+                statusElement.innerHTML = '<span class="text-gray-500">Deu Velha! 😐</span>';
+                boardElement.classList.add('board-shake');
+                
+                setTimeout(() => {
+                    resultIcon.textContent = '🤝';
+                    resultTitle.textContent = 'Empate!';
+                    resultTitle.className = `text-3xl font-extrabold mb-2 text-gray-700 dark:text-gray-200`;
+                    resultSubtitle.textContent = 'Deu velha! Ninguém marcou pontos dessa vez.';
+                    resultModal.classList.remove('hidden');
+                }, 800);
+            }
+
+            // --- BOTÕES E FLUXO ---
             rematchBtn.addEventListener('click', () => {
                 resultModal.classList.add('hidden');
                 startMatchFlow();
             });
 
-            resetBtn.addEventListener('click', () => {
-                initializeBoard();
-                gameActive = true;
-                boardElement.classList.remove('board-shake');
-                updateStatusText();
-            });
-
-            const resetToSetup = () => {
+            newPlayersBtn.addEventListener('click', () => {
                 resultModal.classList.add('hidden');
                 gameScreen.classList.add('hidden');
                 setupScreen.classList.remove('hidden');
-            };
+                stopConfetti();
+            });
 
-            newPlayersBtn.addEventListener('click', resetToSetup);
-            backSetupBtn.addEventListener('click', resetToSetup);
+            resetBtn.addEventListener('click', () => {
+                // Apenas limpa o tabuleiro rápido
+                gameActive = true;
+                boardElement.classList.remove('board-shake');
+                stopConfetti();
+                initializeBoard();
+                currentPlayer = Math.random() < 0.5 ? p1 : p2;
+                updateStatus();
+                if (isBotMode && currentPlayer === p2) {
+                    setTimeout(botPlay, 500);
+                }
+            });
+
+            backSetupBtn.addEventListener('click', () => {
+                gameScreen.classList.add('hidden');
+                setupScreen.classList.remove('hidden');
+                stopConfetti();
+            });
+
+            // --- SISTEMA DE CONFETES ---
+            let confettiParticles = [];
+            let confettiAnimationId = null;
+
+            function startConfetti() {
+                confettiCanvas.classList.remove('hidden');
+                confettiCanvas.width = window.innerWidth;
+                confettiCanvas.height = window.innerHeight;
+                confettiParticles = [];
+                
+                const colors = ['#22c55e', '#3b82f6', '#ef4444', '#f59e0b', '#a855f7'];
+                
+                for (let i = 0; i < 150; i++) {
+                    confettiParticles.push({
+                        x: Math.random() * confettiCanvas.width,
+                        y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+                        w: Math.random() * 10 + 5,
+                        h: Math.random() * 5 + 5,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        speedY: Math.random() * 3 + 2,
+                        speedX: Math.random() * 2 - 1,
+                        rotation: Math.random() * 360,
+                        rotationSpeed: Math.random() * 10 - 5
+                    });
+                }
+                
+                updateConfetti();
+            }
+
+            function updateConfetti() {
+                ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+                
+                let active = false;
+                
+                confettiParticles.forEach(p => {
+                    p.y += p.speedY;
+                    p.x += p.speedX;
+                    p.rotation += p.rotationSpeed;
+                    
+                    if (p.y < confettiCanvas.height) active = true;
+                    
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rotation * Math.PI / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                    ctx.restore();
+                });
+                
+                if (active) {
+                    confettiAnimationId = requestAnimationFrame(updateConfetti);
+                } else {
+                    stopConfetti();
+                }
+            }
+
+            function stopConfetti() {
+                if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+                ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+                confettiCanvas.classList.add('hidden');
+            }
+            
+            // Ajustar resize do canvas de confete
+            window.addEventListener('resize', () => {
+                if (!confettiCanvas.classList.contains('hidden')) {
+                    confettiCanvas.width = window.innerWidth;
+                    confettiCanvas.height = window.innerHeight;
+                }
+            });
+
         });
     </script>
 </body>
