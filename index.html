@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Velha</title>
+    <!-- Adicionando Tailwind CSS para a base visual e fonte -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f0fdf4; /* Fundo verde claro muito suave */
+            --board-bg: #ffffff;
+            --cell-bg: #f8fafc;
+            --cell-border: #e2e8f0;
+            --text-color: #1e293b;
+            --x-color: #ef4444; /* Vermelho para o X */
+            --o-color: #3b82f6; /* Azul para a O */
+            --win-color: #22c55e; /* Verde para vitória */
+            --primary-btn: #10b981;
+            --primary-btn-hover: #059669;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+        }
+
+        .game-container {
+            background-color: var(--board-bg);
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, var(--primary-btn), #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 1.5rem;
+            background-color: var(--cell-bg);
+            padding: 1rem;
+            border-radius: 1rem;
+            border: 1px solid var(--cell-border);
+        }
+
+        .score-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+
+        .score-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .score-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-top: 0.25rem;
+        }
+
+        .player-x { color: var(--x-color); }
+        .player-o { color: var(--o-color); }
+
+        .status {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            min-height: 1.75rem; /* Evita pulo no layout quando o texto muda */
+            text-align: center;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            background-color: var(--cell-border);
+            padding: 0.5rem;
+            border-radius: 1rem;
+            margin-bottom: 1.5rem;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+        }
+
+        .cell {
+            background-color: var(--cell-bg);
+            border-radius: 0.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            user-select: none; /* Previne seleção de texto ao clicar rápido */
+            -webkit-tap-highlight-color: transparent; /* Remove highlight em mobile */
+        }
+
+        .cell:hover {
+            background-color: #f1f5f9;
+        }
+
+        .cell:active {
+            transform: scale(0.95);
+        }
+
+        .cell.x { color: var(--x-color); }
+        .cell.o { color: var(--o-color); }
+        
+        .cell.win {
+            background-color: var(--win-color);
+            color: white;
+            animation: pulse 1s infinite;
+        }
+
+        .reset-btn {
+            background-color: var(--primary-btn);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px; /* Pílula */
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+            width: 100%;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+        }
+
+        .reset-btn:hover {
+            background-color: var(--primary-btn-hover);
+            box-shadow: 0 6px 8px -1px rgba(16, 185, 129, 0.3);
+        }
+
+        .reset-btn:active {
+            transform: scale(0.98);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .cell .mark {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .hidden { display: none !important; }
+
+        .setup-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--cell-border);
+            border-radius: 0.75rem;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+            text-align: center;
+        }
+        .setup-input:focus {
+            border-color: var(--primary-btn);
+        }
+
+        .symbol-btn {
+            padding: 0.5rem 1.5rem;
+            border: 2px solid var(--cell-border);
+            border-radius: 0.75rem;
+            font-weight: bold;
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            flex: 1;
+        }
+        .symbol-btn.selected-x { border-color: var(--x-color); background-color: #fef2f2; color: var(--x-color); }
+        .symbol-btn.selected-o { border-color: var(--o-color); background-color: #eff6ff; color: var(--o-color); }
+
+        .symbol-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .symbol-option {
+            font-size: 1.5rem;
+            padding: 0.25rem;
+            border: 2px solid transparent;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--cell-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .symbol-option:hover:not(:disabled) {
+            transform: scale(1.1);
+            background: #e2e8f0;
+        }
+        .symbol-option:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            filter: grayscale(100%);
+        }
+        .symbol-option.selected-p1 {
+            border-color: var(--x-color);
+            background-color: #fef2f2;
+            transform: scale(1.1);
+        }
+        .symbol-option.selected-p2 {
+            border-color: var(--o-color);
+            background-color: #eff6ff;
+            transform: scale(1.1);
+        }
+        .p1-color { color: var(--x-color) !important; }
+        .p2-color { color: var(--o-color) !important; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        .board-shake {
+            animation: shake 0.5s ease-in-out;
+            filter: grayscale(80%);
+        }
+
+        @keyframes fastSpin {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        .dice-spin {
+            animation: fastSpin 0.3s linear infinite;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); opacity: 1; }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .modal-animate {
+            animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .celebration-bg {
+            background: radial-gradient(circle, rgba(34,197,94,0.3) 0%, rgba(0,0,0,0.6) 100%);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Overlay do Sorteio (Dado) -->
+    <div id="dice-overlay" class="fixed inset-0 bg-black/60 hidden z-50 flex-col justify-center items-center backdrop-blur-sm">
+        <div class="bg-white p-8 rounded-2xl text-center shadow-2xl flex flex-col items-center min-w-[300px]">
+            <div id="dice-emoji" class="text-7xl mb-4">🎲</div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Sorteando...</h2>
+            <p id="dice-text" class="text-xl font-bold text-indigo-600 h-8"></p>
+        </div>
+    </div>
+
+    <!-- Modal de Resultado (Vitória/Empate) -->
+    <div id="result-modal" class="fixed inset-0 hidden z-50 flex justify-center items-center backdrop-blur-md">
+        <div class="bg-white p-8 rounded-3xl text-center shadow-2xl min-w-[320px] modal-animate border-4 border-white">
+            <div id="result-icon" class="text-6xl mb-4">🏆</div>
+            <h2 id="result-title" class="text-3xl font-extrabold text-gray-800 mb-2">Vitória!</h2>
+            <p id="result-subtitle" class="text-lg text-gray-600 mb-6">O jogador venceu.</p>
+            <div class="flex flex-col gap-3">
+                <button id="rematch-btn" class="reset-btn !w-full">Jogar Novamente</button>
+                <button id="new-players-btn" class="text-gray-500 font-semibold hover:text-gray-700 transition">Trocar Jogadores</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tela de Setup -->
+    <div id="setup-screen" class="game-container">
+        <h1 class="title !mb-2">Jogo da Velha</h1>
+        <p class="text-gray-500 mb-6 text-sm">Configure a partida</p>
+        
+        <div class="w-full mb-4">
+            <label class="block text-sm font-bold text-gray-700 mb-1 text-center">Jogador 1</label>
+            <input type="text" id="p1-name" class="setup-input !mb-2" placeholder="Ex: Ana" value="Jogador 1" maxlength="12">
+            <div class="text-xs font-bold text-gray-500 text-center uppercase tracking-wider mt-2">Escolha seu símbolo</div>
+            <div id="p1-symbols" class="symbol-grid"></div>
+        </div>
+
+        <div class="w-full mb-8 mt-4 pt-4 border-t border-gray-200">
+            <label class="block text-sm font-bold text-gray-700 mb-1 text-center">Jogador 2</label>
+            <input type="text" id="p2-name" class="setup-input !mb-2" placeholder="Ex: Carlos" value="Jogador 2" maxlength="12">
+            <div class="text-xs font-bold text-gray-500 text-center uppercase tracking-wider mt-2">Escolha seu símbolo</div>
+            <div id="p2-symbols" class="symbol-grid"></div>
+        </div>
+
+        <button id="start-game-btn" class="reset-btn !w-full !text-lg !py-3 shadow-lg">Iniciar Partida 🚀</button>
+    </div>
+
+    <!-- Tela do Jogo -->
+    <div id="game-screen" class="game-container hidden">
+        <h1 class="title !text-3xl !mb-4">Jogo da Velha</h1>
+
+        <div class="scoreboard">
+            <div class="score-item">
+                <span class="score-label" id="score-label-p1">Jogador 1</span>
+                <span class="score-value p1-color" id="score-p1">0</span>
+            </div>
+            <div class="score-item">
+                <span class="score-label">Empates</span>
+                <span class="score-value" id="score-ties" style="color: #64748b;">0</span>
+            </div>
+            <div class="score-item">
+                <span class="score-label" id="score-label-p2">Jogador 2</span>
+                <span class="score-value p2-color" id="score-p2">0</span>
+            </div>
+        </div>
+
+        <div class="status" id="status">Preparando...</div>
+
+        <div class="board" id="board">
+            <!-- As células serão geradas via JavaScript -->
+        </div>
+
+        <div class="flex gap-2 w-full mt-2">
+            <button class="reset-btn" id="reset-btn" style="flex: 3;">Reiniciar Tabuleiro</button>
+            <button id="back-setup-btn" class="reset-btn !bg-gray-200 !text-gray-700 hover:!bg-gray-300" style="flex: 1;" title="Voltar ao início">⚙️</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Seletores de UI
+            const setupScreen = document.getElementById('setup-screen');
+            const gameScreen = document.getElementById('game-screen');
+            const diceOverlay = document.getElementById('dice-overlay');
+            const resultModal = document.getElementById('result-modal');
+            
+            const p1NameInput = document.getElementById('p1-name');
+            const p2NameInput = document.getElementById('p2-name');
+            const p1SymbolsContainer = document.getElementById('p1-symbols');
+            const p2SymbolsContainer = document.getElementById('p2-symbols');
+            const startGameBtn = document.getElementById('start-game-btn');
+            
+            const diceEmoji = document.getElementById('dice-emoji');
+            const diceText = document.getElementById('dice-text');
+            
+            const resultIcon = document.getElementById('result-icon');
+            const resultTitle = document.getElementById('result-title');
+            const resultSubtitle = document.getElementById('result-subtitle');
+            const rematchBtn = document.getElementById('rematch-btn');
+            const newPlayersBtn = document.getElementById('new-players-btn');
+            const backSetupBtn = document.getElementById('back-setup-btn');
+
+            const boardElement = document.getElementById('board');
+            const statusElement = document.getElementById('status');
+            const resetBtn = document.getElementById('reset-btn');
+            
+            const scoreP1Element = document.getElementById('score-p1');
+            const scoreP2Element = document.getElementById('score-p2');
+            const scoreTiesElement = document.getElementById('score-ties');
+            const scoreLabelP1 = document.getElementById('score-label-p1');
+            const scoreLabelP2 = document.getElementById('score-label-p2');
+
+            // Lista de símbolos divertidos disponíveis
+            const availableSymbols = ['❌', '⭕', '🐶', '🐱', '🦊', '🐼', '🚀', '🛸', '⭐', '🔥'];
+
+            // Estado do Jogo
+            let p1 = { id: 'p1', name: '', symbol: '❌', colorClass: 'p1-color' };
+            let p2 = { id: 'p2', name: '', symbol: '⭕', colorClass: 'p2-color' };
+            let board = ['', '', '', '', '', '', '', '', ''];
+            let currentPlayer = p1;
+            let gameActive = false;
+            let scores = { p1: 0, p2: 0, ties: 0 };
+
+            const winningConditions = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                [0, 4, 8], [2, 4, 6]
+            ];
+
+            // --- LÓGICA DE SETUP ---
+            function renderSymbols() {
+                p1SymbolsContainer.innerHTML = '';
+                p2SymbolsContainer.innerHTML = '';
+                
+                availableSymbols.forEach(sym => {
+                    // Botão P1
+                    const btn1 = document.createElement('button');
+                    btn1.className = `symbol-option ${p1.symbol === sym ? 'selected-p1' : ''}`;
+                    btn1.textContent = sym;
+                    btn1.disabled = p2.symbol === sym; // Desabilita se P2 escolheu
+                    btn1.addEventListener('click', () => { 
+                        p1.symbol = sym; 
+                        renderSymbols(); 
+                    });
+                    p1SymbolsContainer.appendChild(btn1);
+
+                    // Botão P2
+                    const btn2 = document.createElement('button');
+                    btn2.className = `symbol-option ${p2.symbol === sym ? 'selected-p2' : ''}`;
+                    btn2.textContent = sym;
+                    btn2.disabled = p1.symbol === sym; // Desabilita se P1 escolheu
+                    btn2.addEventListener('click', () => { 
+                        p2.symbol = sym; 
+                        renderSymbols(); 
+                    });
+                    p2SymbolsContainer.appendChild(btn2);
+                });
+            }
+
+            // Renderiza os símbolos iniciais
+            renderSymbols();
+
+            startGameBtn.addEventListener('click', () => {
+                p1.name = p1NameInput.value.trim() || 'Jogador 1';
+                p2.name = p2NameInput.value.trim() || 'Jogador 2';
+                
+                // Configura o placar com os novos símbolos
+                scoreLabelP1.textContent = `${p1.name} (${p1.symbol})`;
+                scoreLabelP2.textContent = `${p2.name} (${p2.symbol})`;
+
+                scores = { p1: 0, p2: 0, ties: 0 };
+                updateScoreboard();
+
+                setupScreen.classList.add('hidden');
+                startMatchFlow();
+            });
+
+            // --- FLUXO DE INÍCIO (SORTEIO) ---
+            function startMatchFlow() {
+                boardElement.classList.remove('board-shake');
+                initializeBoard();
+                
+                diceOverlay.classList.remove('hidden');
+                diceOverlay.classList.add('flex');
+                diceEmoji.classList.add('dice-spin');
+                diceText.textContent = 'Decidindo a sorte...';
+
+                // Sorteia quem começa (50/50)
+                currentPlayer = Math.random() < 0.5 ? p1 : p2;
+
+                setTimeout(() => {
+                    diceEmoji.classList.remove('dice-spin');
+                    diceText.textContent = `A sorte sorriu para: ${currentPlayer.name}!`;
+                    
+                    setTimeout(() => {
+                        diceOverlay.classList.add('hidden');
+                        diceOverlay.classList.remove('flex');
+                        gameScreen.classList.remove('hidden');
+                        gameActive = true;
+                        updateStatusText();
+                    }, 1800);
+                }, 1500);
+            }
+
+            function updateStatusText() {
+                statusElement.innerHTML = `Sua vez, <span class="${currentPlayer.colorClass}">${currentPlayer.name}</span> (${currentPlayer.symbol})`;
+            }
+
+            // --- LÓGICA DO TABULEIRO ---
+            function initializeBoard() {
+                board = ['', '', '', '', '', '', '', '', ''];
+                boardElement.innerHTML = '';
+                for (let i = 0; i < 9; i++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.index = i;
+                    cell.addEventListener('click', handleCellClick);
+                    boardElement.appendChild(cell);
+                }
+            }
+
+            function handleCellClick(event) {
+                const clickedCell = event.target;
+                const cellIndex = parseInt(clickedCell.dataset.index);
+
+                if (board[cellIndex] !== '' || !gameActive) return;
+
+                // Armazena quem jogou
+                board[cellIndex] = currentPlayer.id;
+                
+                // Mostra o símbolo na tela
+                const markElement = document.createElement('span');
+                markElement.classList.add('mark');
+                markElement.textContent = currentPlayer.symbol;
+                clickedCell.appendChild(markElement);
+                clickedCell.classList.add(currentPlayer.colorClass);
+
+                checkResult();
+            }
+
+            function checkResult() {
+                let roundWon = false;
+                let winningCells = [];
+
+                // Verifica condições de vitória
+                for (let i = 0; i < winningConditions.length; i++) {
+                    const [a, b, c] = winningConditions[i];
+                    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                        roundWon = true;
+                        winningCells = [a, b, c];
+                        break;
+                    }
+                }
+
+                if (roundWon) {
+                    handleWin(winningCells);
+                    return;
+                }
+
+                if (!board.includes('')) {
+                    handleDraw();
+                    return;
+                }
+
+                // Troca turno
+                currentPlayer = currentPlayer.id === 'p1' ? p2 : p1;
+                updateStatusText();
+            }
+
+            function handleWin(winningCells) {
+                gameActive = false;
+                const cells = document.querySelectorAll('.cell');
+                winningCells.forEach(index => cells[index].classList.add('win'));
+
+                scores[currentPlayer.id]++;
+                updateScoreboard();
+                statusElement.innerHTML = `✨ Vitória de ${currentPlayer.name}! ✨`;
+
+                setTimeout(() => showResultModal('win'), 800);
+            }
+
+            function handleDraw() {
+                gameActive = false;
+                scores.ties++;
+                updateScoreboard();
+                statusElement.innerHTML = `Deu Velha! 🤝`;
+                
+                boardElement.classList.add('board-shake');
+                setTimeout(() => showResultModal('draw'), 1000);
+            }
+
+            function updateScoreboard() {
+                scoreP1Element.textContent = scores.p1;
+                scoreP2Element.textContent = scores.p2;
+                scoreTiesElement.textContent = scores.ties;
+            }
+
+            // --- MODAIS E BOTÕES ---
+            function showResultModal(type) {
+                resultModal.classList.remove('hidden');
+                resultModal.classList.remove('celebration-bg');
+                resultModal.classList.add('bg-black/60');
+
+                if (type === 'win') {
+                    resultIcon.textContent = '🏆';
+                    resultTitle.textContent = 'Vitória!';
+                    resultTitle.className = `text-3xl font-extrabold mb-2 ${currentPlayer.colorClass}`;
+                    resultSubtitle.innerHTML = `<strong>${currentPlayer.name}</strong> (${currentPlayer.symbol}) dominou a partida! 🎉`;
+                    resultModal.classList.remove('bg-black/60');
+                    resultModal.classList.add('celebration-bg');
+                } else {
+                    resultIcon.textContent = '🤷‍♂️';
+                    resultTitle.textContent = 'Deu Velha!';
+                    resultTitle.className = 'text-3xl font-extrabold text-gray-800 mb-2';
+                    resultSubtitle.textContent = 'Foi um jogo acirrado, ninguém venceu.';
+                }
+            }
+
+            rematchBtn.addEventListener('click', () => {
+                resultModal.classList.add('hidden');
+                startMatchFlow();
+            });
+
+            resetBtn.addEventListener('click', () => {
+                initializeBoard();
+                gameActive = true;
+                boardElement.classList.remove('board-shake');
+                updateStatusText();
+            });
+
+            const resetToSetup = () => {
+                resultModal.classList.add('hidden');
+                gameScreen.classList.add('hidden');
+                setupScreen.classList.remove('hidden');
+            };
+
+            newPlayersBtn.addEventListener('click', resetToSetup);
+            backSetupBtn.addEventListener('click', resetToSetup);
+        });
+    </script>
+</body>
+</html>
